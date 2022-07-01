@@ -17,8 +17,8 @@ import tf_utilV2
 from modelV2 import *
 print("success")
 
-BATCH_SIZE = 8
-BATCH_SIZE_EVAL = 8
+BATCH_SIZE = 16
+BATCH_SIZE_EVAL = 16
 NUM_POINT = 4096*2
 MAX_EPOCH = 1000
 BASE_LEARNING_RATE = 0.001
@@ -46,11 +46,11 @@ BN_DECAY_CLIP = 0.99
 
 HOSTNAME = socket.gethostname()
 
-#Normalize data
-xmax = 3.0
-xmin = -3.0
+# #Normalize data
+# xmax = 3.0
+# xmin = -3.0
 
-DATASET_DIR = '/home/peter/Documents/python_ws/PointNet_Custom_Object_Detection/train_input/augmented_data/'
+DATASET_DIR = '/home/hayashi/Documents/pythonWS/pointnet_detector/train_input/augmented_data/'
 f = h5py.File(DATASET_DIR+ 'd0.h5','r')
 NUM_FRAMES = f['data'].shape[0]
 
@@ -61,7 +61,7 @@ for i in range (0,6):
     f = h5py.File(DATASET_DIR+ 'd' +str(i)+'.h5','r')
     data = f['data']
     label = f['label']
-    total_data[i*len(data):(i+1)*len(data),:,0:3] = (data[:, :, 0:3] - xmin) / (xmax  - xmin )
+    total_data[i*len(data):(i+1)*len(data),:,0:3] = data[:, :, 0:3]
     total_data[i*len(data):(i+1)*len(data),:,3:6] = data[:, :, 3:6]
     total_label[i*len(data):(i+1)*len(data),:] = label[:, :]
     

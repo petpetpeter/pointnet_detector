@@ -7,8 +7,8 @@ import os
 
 from plyfile import PlyData, PlyElement
 import h5py
-INPUT_FILE = f"/home/peter/Documents/python_ws/PointNet_Custom_Object_Detection/train_input/train_data.h5"
-OUTPUT_DIR = f"/home/peter/Documents/python_ws/PointNet_Custom_Object_Detection/train_input/augmented_data/"
+INPUT_FILE = f"/home/hayashi/Documents/pythonWS/pointnet_detector/train_input/train_data.h5"
+OUTPUT_DIR = f"/home/hayashi/Documents/pythonWS/pointnet_detector/train_input/augmented_data/"
 if os.path.exists(OUTPUT_DIR) == False:
     os.makedirs(OUTPUT_DIR)
 

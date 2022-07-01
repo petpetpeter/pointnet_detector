@@ -8,7 +8,7 @@ import copy
 import tensorflow as tf
 import socket
  
-from utils.label_pcd import PointCloudData,read_pcd_file
+from pointnet_detector.utils.pointclouddata import PointCloudData,read_pcd_file
 
 def get_learning_rate(batch):
     learning_rate = tf.compat.v1.train.exponential_decay(
@@ -31,7 +31,7 @@ def get_bn_decay(batch):
     return bn_decay
 
 class PointNetDetector:
-    def __init__(self,model_path):
+    def __init__(self,log_dir):
         with tf.Graph().as_default():
             with tf.device('/gpu:'+str(GPU_INDEX)):
                 pointclouds_pl, labels_pl = placeholder_inputs(BATCH_SIZE, NUM_POINT)
@@ -67,7 +67,7 @@ class PointNetDetector:
             merged = tf.compat.v1.summary.merge_all()
 
             
-            ops = {'pointclouds_pl': pointclouds_pl,
+            self.ops = {'pointclouds_pl': pointclouds_pl,
                     'labels_pl': labels_pl,
                     'is_training_pl': is_training_pl,
                     'pred': pred,
@@ -75,10 +75,10 @@ class PointNetDetector:
                     'train_op': train_op,
                     'merged': merged,
                     'step': batch}
-            MODEL_PATH = f"{LOG_DIR}/model.ckpt"
+            MODEL_PATH = f"{log_dir}/model.ckpt"
             # Restore variables from disk.
             saver.restore(self.sess, MODEL_PATH)
-            test_writer = tf.compat.v1.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+            self.test_writer = tf.compat.v1.summary.FileWriter(os.path.join(log_dir, 'test'))
     
     def predict(self, pointcloud_data):
         np_points = pointcloud_data.points
@@ -86,11 +86,11 @@ class PointNetDetector:
         true_label = pointcloud_data.labels
         pred_label,acc = self.eval_one_epoch(self.sess, self.ops, np_points, np_colors, true_label)
         predict_pcl_data = PointCloudData(np_points,np_colors,pred_label)
-        return predict_pcl_data
+        return predict_pcl_data,acc
 
     def eval_one_epoch(self,sess, ops, xyz, rgb,true_label):
         is_training = False
-        test_writer = tf.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
+        #test_writer = tf.compat.v1.summary.FileWriter(os.path.join(LOG_DIR, 'test'))
         num_point = xyz.shape[0]
         xmax = 3.0
         xmin = -3.0
@@ -116,10 +116,12 @@ class PointNetDetector:
             
             pred_label = np.argmax(pred_val, 2) # BxN
             
-            test_writer.add_summary(summary, step)
-            pred_val = np.argmax(pred_val, 2)
-            correct = np.sum(pred_val == current_label[start_idx:end_idx])
-        return pred_label,correct/num_point
+            self.test_writer.add_summary(summary, step)
+            correct = np.sum(pred_label == current_label[start_idx:end_idx])
+
+            print(f"pred_label.shape",pred_label.shape)
+            labels = pred_label.flatten()
+        return labels,correct/num_point
 
 if __name__ == "__main__":
     BATCH_SIZE = 1
@@ -132,11 +134,10 @@ if __name__ == "__main__":
     DECAY_STEP = 300000
     DECAY_RATE = 0.5
 
-    LOG_DIR = 'log'
-    if not os.path.exists(LOG_DIR): os.mkdir(LOG_DIR)
-    os.system('cp model.py %s' % (LOG_DIR)) # bkp of model def
-    os.system('cp train.py %s' % (LOG_DIR)) # bkp of train procedure
-    LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
+    LOG_DIR = 'log_300_mix'
+    if not os.path.exists(LOG_DIR):
+        print(f"{LOG_DIR} not exists, bye")
+        exit(0)
 
     MAX_NUM_POINT = 4096
     NUM_CLASSES = 2
@@ -150,14 +151,19 @@ if __name__ == "__main__":
     HOSTNAME = socket.gethostname()
 
     print(f"Hello {HOSTNAME}")
-    MODEL_PATH = "/home/peter/Documents/python_ws/PointNet_Custom_Object_Detection/log_1200_burr/model.ckpt"
-    TEST_FILE = "/home/peter/Documents/python_ws/PointNet_Custom_Object_Detection/test_input/hole4_bigburr.pcd"
-    model = PointNetDetector(MODEL_PATH)
+    #MODEL_PATH = "/home/hayashi/Documents/pythonWS/pointnet_detector/log_300_mix/model.ckpt"
+    TEST_FILE = "/home/hayashi/Documents/pythonWS/pointnet_detector/test_input/scene_dense_19_bigburr.pcd"
+    model = PointNetDetector(LOG_DIR)
     pcd_data = read_pcd_file(TEST_FILE)
     layers = pcd_data.uniform_slice_layer(50)
+    print(f"length of layers: {len(layers)}")
     for layer in layers:
-        predict_pcd_data = model.predict(layer)
-        break
+        layer.visualize()
+        t0 = time.time()
+        predict_pcd_data,acc = model.predict(layer)
+        print(f"acc: {acc}, infer_time: {time.time()-t0}")
+        predict_pcd_data.visualize()
+
     
 
 
